@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b1020">
+    <meta name="description" content="Vocab Builder — a focused vocabulary learning workspace with spaced review and practice tests.">
     <title>{% block title %}Vocab Builder{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,10 +23,14 @@
         <nav>
             <a class="nav-link {% if request.endpoint == 'Dashboard' %}active{% endif %}" href="{{ url_for('Dashboard') }}"><span>⌂</span> Dashboard</a>
             <a class="nav-link {% if request.endpoint == 'test' %}active{% endif %}" href="{{ url_for('test') }}"><span>✓</span> Test Zone</a>
+            <a class="nav-link {% if request.endpoint == 'lookup' %}active{% endif %}" href="{{ url_for('lookup') }}"><span>⌕</span> Dictionary</a>
             <a class="nav-link {% if request.endpoint == 'setting' %}active{% endif %}" href="{{ url_for('setting') }}"><span>⚙</span> Settings</a>
         </nav>
         <div class="sidebar-bottom">
-            <div class="mini-profile"><span class="avatar">{{ current_user.name[:1]|upper }}</span><div><strong>{{ current_user.name }}</strong><small>{{ current_user.exam }}</small></div></div>
+            <div class="mini-profile">
+                <span class="avatar">{{ current_user.name[:1]|upper }}</span>
+                <div><strong>{{ current_user.name }}</strong><small>{{ current_user.exam }}</small></div>
+            </div>
             <a class="nav-link logout-link" href="{{ url_for('logout') }}"><span>↪</span> Log out</a>
         </div>
     </aside>
