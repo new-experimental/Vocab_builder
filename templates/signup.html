@@ -1,26 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Create account · Vocab Builder{% endblock %}
 {% block content %}
-<div class="auth-page" style="margin:-72px -34px -28px;min-height:calc(100vh + 100px)">
+<div class="auth-page" style="margin:-72px -36px -28px;min-height:calc(100vh + 100px)">
   <div class="auth-shell">
     <div class="auth-logo"><span class="brand-mark">V</span> Vocab Builder</div>
-    <h1>Build your learning plan</h1>
-    <p class="lead">Set your target once. We'll keep your daily practice focused.</p>
+    <p class="eyebrow">START WITH A PLAN</p>
+    <h1>Make vocabulary part of your routine.</h1>
+    <p class="lead">Set a small daily target. Vocab Builder will handle the review rhythm.</p>
     <form method="POST" class="auth-form">
-      <div><label>Full name</label><input type="text" name="name" placeholder="Your name" required></div>
-      <div><label>Email address</label><input type="email" name="username" placeholder="you@example.com" autocomplete="email" required></div>
-      <div class="form-grid">
-        <div><label>Exam / goal</label><select class="select" name="exam"><option>NDA</option><option>CAT</option><option>SAT</option><option>DET</option><option>English Proficiency</option><option>Other</option></select></div>
-        <div><label>Words per day</label><input type="number" name="word_limit" value="10" min="3" max="50" required></div>
-      </div>
-      <div class="form-grid">
-        <div><label>Start date</label><input type="date" name="start_date"></div>
-        <div><label>End date</label><input type="date" name="end_date"></div>
-      </div>
-      <div><label>Password</label><input type="password" name="password" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" required></div>
-      <button class="button" type="submit">Create my account</button>
+      <div><label for="name">Full name</label><input id="name" type="text" name="name" placeholder="Your name" autocomplete="name" required></div>
+      <div><label for="exam">Main goal</label><select id="exam" name="exam"><option>NDA</option><option>CAT</option><option>SAT</option><option>DET</option><option selected>English Proficiency</option><option>Other</option></select></div>
+      <div><label for="word_limit">Words per day</label><input id="word_limit" type="number" name="word_limit" min="3" max="50" value="10" required></div>
+      <div class="form-grid"><div><label for="start_date">Start date</label><input id="start_date" type="date" name="start_date"></div><div><label for="end_date">Target end</label><input id="end_date" type="date" name="end_date"></div></div>
+      <div><label for="username">Email address</label><input id="username" type="email" name="username" placeholder="you@example.com" autocomplete="email" required></div>
+      <div><label for="password">Password</label><input id="password" type="password" name="password" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" required></div>
+      <button class="button" type="submit">Create account <span>→</span></button>
     </form>
-    <div class="auth-foot">Already have an account? <a href="{{ url_for('login') }}">Log in</a></div>
+    <div class="auth-foot">Already learning here? <a href="{{ url_for('login') }}">Log in</a></div>
   </div>
 </div>
 {% endblock %}
