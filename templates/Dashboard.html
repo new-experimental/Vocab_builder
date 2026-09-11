@@ -1,36 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Dashboard · Vocab Builder{% endblock %}
-{% block page_eyebrow %}Dashboard{% endblock %}
+{% block page_eyebrow %}Today{% endblock %}
 {% block content %}
 <div class="page">
   <section class="hero">
     <div>
-      <p class="eyebrow">{{ today.strftime('%A, %d %B') }}</p>
-      <h1>Keep building your vocabulary, {{ current_user.name.split()[0] }}.</h1>
-      <p>Your daily set is ready. Review difficult words first, then add something new.</p>
+      <p class="eyebrow">{{ today.strftime('%A · %d %B') }}</p>
+      <h1>Build vocabulary that actually sticks.</h1>
+      <p>Your next review is ready. Keep the session focused, then leave the rest for tomorrow.</p>
     </div>
-    <a class="button" href="{{ url_for('test') }}">Take a test →</a>
+    <a class="button" href="{{ url_for('test') }}">Test my recall <span>→</span></a>
   </section>
 
   <section class="quick-lookup">
-    <div><strong>Need a quick definition?</strong><span>Search the library or fetch a new word.</span></div>
-    <form method="GET" action="{{ url_for('lookup') }}"><input name="word" placeholder="Search a word…" autocomplete="off"><button class="button" type="submit">Dictionary</button></form>
+    <div><strong>Quick dictionary</strong><span>Look up a word without leaving your study flow.</span></div>
+    <form method="GET" action="{{ url_for('lookup') }}"><input name="word" placeholder="Search a word…" autocomplete="off" aria-label="Search dictionary"><button class="button" type="submit">Search</button></form>
   </section>
 
   <section class="stats">
-    <div class="stat"><div class="stat-top"><span>Words today</span><span class="stat-icon">✦</span></div><div class="stat-value">{{ words|length }}</div><div class="stat-sub">Daily learning target</div></div>
-    <div class="stat"><div class="stat-top"><span>Known</span><span class="stat-icon">✓</span></div><div class="stat-value">{{ stats.known }}</div><div class="stat-sub">Words you've mastered</div></div>
-    <div class="stat"><div class="stat-top"><span>Review queue</span><span class="stat-icon">↻</span></div><div class="stat-value">{{ stats.due }}</div><div class="stat-sub">Due for reinforcement</div></div>
-    <div class="stat"><div class="stat-top"><span>Library</span><span class="stat-icon">#</span></div><div class="stat-value">{{ stats.library_size }}</div><div class="stat-sub">Words available to learn</div></div>
+    <div class="stat"><div class="stat-top"><span>Today</span><span class="stat-icon">✦</span></div><div class="stat-value">{{ words|length }}</div><div class="stat-sub">Words in this session</div></div>
+    <div class="stat"><div class="stat-top"><span>Mastered</span><span class="stat-icon">✓</span></div><div class="stat-value">{{ stats.known }}</div><div class="stat-sub">Words marked known</div></div>
+    <div class="stat"><div class="stat-top"><span>Due</span><span class="stat-icon">↻</span></div><div class="stat-value">{{ stats.due }}</div><div class="stat-sub">Reviews waiting</div></div>
+    <div class="stat"><div class="stat-top"><span>Library</span><span class="stat-icon">#</span></div><div class="stat-value">{{ stats.library_size }}</div><div class="stat-sub">Words available</div></div>
   </section>
 
   <section class="progress-card">
-    <div class="progress-copy"><strong>Learning accuracy</strong><span>Use reviews to turn recognition into recall.</span></div>
+    <div class="progress-copy"><strong>Recall strength</strong><span>{{ stats.accuracy }}% accuracy across your attempts.</span></div>
     <div class="progress-track"><div class="progress-fill" style="width: {{ [stats.accuracy, 100]|min }}%"></div></div>
     <div class="progress-percent">{{ stats.accuracy }}%</div>
   </section>
 
-  <div class="section-head"><h2>Today's words</h2><span>{{ words|length }} cards · {{ current_user.word_limit }} daily target</span></div>
+  <div class="section-head"><h2>Today's queue</h2><span>{{ words|length }} of {{ current_user.word_limit }} target</span></div>
   {% if words %}
   <section class="words">
     {% for word in words %}
@@ -45,7 +45,7 @@
         <div class="detail"><label>Synonym</label><p>{{ word.synonym or '—' }}</p></div>
         <div class="detail"><label>Antonym</label><p>{{ word.antonym or '—' }}</p></div>
       </div>
-      <div class="example"><strong>Example:</strong> {{ word.example or 'Create your own sentence to strengthen recall.' }}</div>
+      <div class="example"><strong>In context:</strong> {{ word.example or 'Create your own sentence to strengthen recall.' }}</div>
       <div class="word-actions">
         <form action="{{ url_for('update_word') }}" method="POST"><input type="hidden" name="word_id" value="{{ word.id }}"><button class="known" name="status" value="known" type="submit">✓ I know this</button></form>
         <form action="{{ url_for('update_word') }}" method="POST"><input type="hidden" name="word_id" value="{{ word.id }}"><button class="unknown" name="status" value="unknown" type="submit">↻ Review later</button></form>
@@ -54,11 +54,11 @@
     {% endfor %}
   </section>
   {% else %}
-    <div class="empty"><strong>You're all caught up.</strong><br>Come back when your next review is due.</div>
+    <div class="empty"><strong>Perfect. Nothing is due.</strong><br>Your review queue is clear for now. Come back when the next interval arrives.</div>
   {% endif %}
 
   {% if stats.tests %}
-  <div class="section-head"><h2>Recent tests</h2><span>Your latest attempts</span></div>
+  <div class="section-head"><h2>Recent performance</h2><span>Latest attempts</span></div>
   <div class="test-shell history-shell">
     {% for test in stats.tests %}
       <div class="result-row"><span>{{ test.test_date.strftime('%d %b %Y') if test.test_date else 'Recent test' }} · {{ test.level or 'Mixed' }}</span><strong>{{ test.score }}/{{ test.total }}</strong></div>
@@ -70,7 +70,10 @@
 {% block scripts %}
 <script>
 document.querySelectorAll('[data-audio]').forEach(btn => {
-  btn.addEventListener('click', () => new Audio(btn.dataset.audio).play().catch(() => {}));
+  btn.addEventListener('click', () => {
+    const audio = new Audio(btn.dataset.audio);
+    audio.play().catch(() => {});
+  });
 });
 </script>
 {% endblock %}
