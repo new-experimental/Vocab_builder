@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Dictionary · Vocab Builder{% endblock %}
+{% block page_eyebrow %}Dictionary{% endblock %}
+{% block content %}
+<div class="page narrow-page">
+  <section class="hero compact-hero">
+    <div>
+      <p class="eyebrow">LOOK IT UP</p>
+      <h1>Understand a word in seconds.</h1>
+      <p>Search the local library first. New words can be fetched and cached automatically.</p>
+    </div>
+  </section>
+
+  <form class="lookup-bar" method="GET" action="{{ url_for('lookup') }}">
+    <input name="word" value="{{ query }}" placeholder="Try: meticulous" autocomplete="off" autofocus>
+    <button class="button" type="submit">Search</button>
+  </form>
+
+  {% if query and result %}
+  <article class="lookup-result">
+    <div class="word-meta"><span class="level">{{ result.level or 'B1' }}</span><span class="pos">{{ result.part_of_speech or 'Vocabulary' }}</span></div>
+    <div class="lookup-heading">
+      <div>
+        <h2>{{ result.word }}</h2>
+        {% if result.phonetic %}<div class="pronunciation">{{ result.phonetic }}</div>{% endif %}
+      </div>
+      {% if result.audio_url %}<button class="audio-button" type="button" data-audio="{{ result.audio_url }}" aria-label="Play pronunciation">▶</button>{% endif %}
+    </div>
+    <p class="lookup-meaning">{{ result.meaning }}</p>
+    <div class="word-details">
+      <div class="detail"><label>Synonyms</label><p>{{ result.synonym or '—' }}</p></div>
+      <div class="detail"><label>Antonyms</label><p>{{ result.antonym or '—' }}</p></div>
+    </div>
+    {% if result.example %}<div class="example"><strong>Example:</strong> {{ result.example }}</div>{% endif %}
+    <div class="lookup-source">Source: {{ result.source or 'Vocab Builder library' }}</div>
+  </article>
+  {% elif query %}
+  <div class="empty"><strong>We couldn't find “{{ query }}”.</strong><br>Try a different spelling or another word.</div>
+  {% else %}
+  <div class="empty"><strong>Build your own vocabulary library.</strong><br>Search any word and useful results are cached for later use.</div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-audio]').forEach(btn => {
+  btn.addEventListener('click', () => new Audio(btn.dataset.audio).play().catch(() => {}));
+});
+</script>
+{% endblock %}
