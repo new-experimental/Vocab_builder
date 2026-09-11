@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Test Zone · Vocab Builder{% endblock %}
-{% block page_eyebrow %}Test Zone{% endblock %}
+{% block page_eyebrow %}Recall{% endblock %}
 {% block content %}
 <div class="page">
   <div class="test-shell">
     <div class="test-intro">
-      <div class="eyebrow" style="color:#9f98ff">RECALL PRACTICE</div>
-      <h1>Test what you remember.</h1>
-      <p>10 multiple-choice questions · 10 minutes · Instant feedback after submission.</p>
+      <div class="eyebrow" style="color:#9f98ff">FOCUSED PRACTICE</div>
+      <h1>Can you recall it without the hint?</h1>
+      <p>10 questions · 10 minutes · Your answers update your review schedule.</p>
     </div>
-    <form method="GET" class="test-tools">
+
+    <form method="GET" class="test-tools" aria-label="Choose test level">
       <select class="select" name="level" onchange="this.form.submit()">
         <option value="A1,A2" {% if level_filter == 'A1,A2' %}selected{% endif %}>Beginner · A1–A2</option>
         <option value="B1,B2" {% if level_filter == 'B1,B2' %}selected{% endif %}>Intermediate · B1–B2</option>
@@ -18,25 +19,32 @@
     </form>
 
     {% if questions %}
-    <button class="button" id="startBtn" type="button">Start test</button>
-    <div id="testArea" style="display:none">
-      <div class="timer">⏱ <span id="time">10:00</span></div>
-      <form method="POST" action="{{ url_for('submit_mcq') }}" id="testForm">
-        <input type="hidden" name="test_level" value="{{ level_filter }}">
-        {% for q in questions %}
-        <article class="question">
-          <div class="question-number">QUESTION {{ loop.index }} / {{ questions|length }}</div>
-          <h3>What does <strong>{{ q.word }}</strong> mean?</h3>
-          {% for opt in q.options %}
-          <label class="option"><input type="radio" name="q_{{ q.id }}" value="{{ opt }}" required> <span>{{ opt }}</span></label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 4px">
+        <div style="font-size:11px;color:var(--muted)">Ready when you are.</div>
+        <button class="button" id="startBtn" type="button">Start test</button>
+      </div>
+      <div id="testArea" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 5px;gap:12px">
+          <div class="question-number">{{ questions|length }} QUESTIONS</div>
+          <div class="timer">⏱ <span id="time">10:00</span></div>
+        </div>
+        <div class="progress-track" style="height:6px;margin:8px 0 15px"><div id="testProgress" class="progress-fill" style="width:0%"></div></div>
+        <form method="POST" action="{{ url_for('submit_mcq') }}" id="testForm">
+          <input type="hidden" name="test_level" value="{{ level_filter }}">
+          {% for q in questions %}
+          <article class="question" data-index="{{ loop.index }}">
+            <div class="question-number">QUESTION {{ loop.index }} / {{ questions|length }}</div>
+            <h3>What does <strong>{{ q.word }}</strong> mean?</h3>
+            {% for opt in q.options %}
+            <label class="option"><input type="radio" name="q_{{ q.id }}" value="{{ opt }}" required> <span>{{ opt }}</span></label>
+            {% endfor %}
+          </article>
           {% endfor %}
-        </article>
-        {% endfor %}
-        <button class="button" style="width:100%;margin-top:18px" type="submit">Submit test</button>
-      </form>
-    </div>
+          <button class="button" style="width:100%;margin-top:18px" type="submit">Finish test</button>
+        </form>
+      </div>
     {% else %}
-      <div class="empty"><strong>Not enough words yet.</strong><br>Learn a few more words before taking this level's test.</div>
+      <div class="empty"><strong>Not enough words for this level yet.</strong><br>Learn a few more words, then come back for a test.</div>
     {% endif %}
   </div>
 </div>
@@ -48,13 +56,22 @@ const area = document.getElementById('testArea');
 let remaining = 600;
 let timer;
 start?.addEventListener('click', () => {
-  start.style.display='none'; area.style.display='block';
+  start.style.display='none';
+  area.style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
   timer=setInterval(() => {
     remaining--;
     const m=Math.floor(remaining/60), s=remaining%60;
     document.getElementById('time').textContent=`${m}:${s.toString().padStart(2,'0')}`;
     if(remaining<=0){clearInterval(timer);document.getElementById('testForm').submit();}
   },1000);
+});
+document.querySelectorAll('#testForm input[type="radio"]').forEach(input => {
+  input.addEventListener('change', () => {
+    const total = document.querySelectorAll('.question').length;
+    const answered = new Set(Array.from(document.querySelectorAll('#testForm input[type="radio"]:checked')).map(x => x.name)).size;
+    document.getElementById('testProgress').style.width = `${(answered / total) * 100}%`;
+  });
 });
 </script>
 {% endblock %}

@@ -1,23 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Test result · Vocab Builder{% endblock %}
-{% block page_eyebrow %}Test result{% endblock %}
+{% block page_eyebrow %}Result{% endblock %}
 {% block content %}
 <div class="page">
   <div class="result-card">
-    <div class="eyebrow">TEST COMPLETE</div>
+    <p class="eyebrow">TEST COMPLETE</p>
     <div class="score-ring">{{ percentage }}%</div>
-    <h1 style="font-family:'Plus Jakarta Sans';margin:0 0 7px">{% if percentage >= 80 %}Excellent recall.{% elif percentage >= 60 %}Good progress.{% else %}Keep practicing.{% endif %}</h1>
-    <p style="color:var(--muted);font-size:13px;margin:0">You scored <strong>{{ score }}/{{ total }}</strong>. Your missed words have been queued for reinforcement.</p>
+    <h1 style="font-family:'Plus Jakarta Sans';margin:0 0 7px;letter-spacing:-.7px">{% if percentage >= 80 %}Strong recall.{% elif percentage >= 60 %}Good progress.{% else %}Keep the rhythm.{% endif %}</h1>
+    <p style="color:var(--muted);font-size:12px;margin:0">You scored <strong>{{ score }}/{{ total }}</strong>. Missed words are back in your reinforcement cycle.</p>
     <div class="result-list">
       {% for r in results %}
       <div class="result-row">
-        <strong>{{ loop.index }}. {{ r.word }}</strong>
-        <div style="margin-top:5px">Your answer: <span class="{{ 'correct' if r.is_correct else 'incorrect' }}">{{ r.selected }}</span></div>
-        {% if not r.is_correct %}<div style="margin-top:4px">Correct: <span class="correct">{{ r.correct }}</span></div>{% endif %}
+        <div><strong>{{ loop.index }}. {{ r.word }}</strong><div style="margin-top:5px;color:var(--muted)">{{ r.level }}</div></div>
+        <div style="text-align:right"><div>Your answer: <span class="{{ 'correct' if r.is_correct else 'incorrect' }}">{{ r.selected }}</span></div>{% if not r.is_correct %}<div style="margin-top:4px">Correct: <span class="correct">{{ r.correct }}</span></div>{% endif %}</div>
       </div>
       {% endfor %}
     </div>
-    <div style="display:flex;gap:9px;justify-content:center;margin-top:22px"><a class="button" href="{{ url_for('Dashboard') }}">Back to dashboard</a><a class="button secondary" href="{{ url_for('test') }}">Try another test</a></div>
+    <div style="display:flex;gap:9px;justify-content:center;margin-top:22px;flex-wrap:wrap"><a class="button" href="{{ url_for('Dashboard') }}">Back to dashboard</a><a class="button secondary" href="{{ url_for('test') }}">Try another test</a></div>
   </div>
 </div>
 {% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0b1020">
+    <meta name="theme-color" content="#0d0f16">
     <meta name="description" content="Vocab Builder — a focused vocabulary learning workspace with spaced review and practice tests.">
     <title>{% block title %}Vocab Builder{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,18 +13,19 @@
     {% block head %}{% endblock %}
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     <div class="mobile-overlay" id="mobileOverlay"></div>
-    <aside class="sidebar" id="sidebar">
-        <a class="brand" href="{{ url_for('Dashboard') }}">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+        <a class="brand" href="{{ url_for('Dashboard') }}" aria-label="Vocab Builder dashboard">
             <span class="brand-mark">V</span>
             <span><strong>Vocab</strong><em>Builder</em></span>
         </a>
         <div class="nav-label">LEARNING</div>
         <nav>
-            <a class="nav-link {% if request.endpoint == 'Dashboard' %}active{% endif %}" href="{{ url_for('Dashboard') }}"><span>⌂</span> Dashboard</a>
-            <a class="nav-link {% if request.endpoint == 'test' %}active{% endif %}" href="{{ url_for('test') }}"><span>✓</span> Test Zone</a>
-            <a class="nav-link {% if request.endpoint == 'lookup' %}active{% endif %}" href="{{ url_for('lookup') }}"><span>⌕</span> Dictionary</a>
-            <a class="nav-link {% if request.endpoint == 'setting' %}active{% endif %}" href="{{ url_for('setting') }}"><span>⚙</span> Settings</a>
+            <a class="nav-link {% if request.endpoint == 'Dashboard' %}active{% endif %}" href="{{ url_for('Dashboard') }}" {% if request.endpoint == 'Dashboard' %}aria-current="page"{% endif %}><span>⌂</span> Dashboard</a>
+            <a class="nav-link {% if request.endpoint == 'test' %}active{% endif %}" href="{{ url_for('test') }}" {% if request.endpoint == 'test' %}aria-current="page"{% endif %}><span>✓</span> Test Zone</a>
+            <a class="nav-link {% if request.endpoint == 'lookup' %}active{% endif %}" href="{{ url_for('lookup') }}" {% if request.endpoint == 'lookup' %}aria-current="page"{% endif %}><span>⌕</span> Dictionary</a>
+            <a class="nav-link {% if request.endpoint == 'setting' %}active{% endif %}" href="{{ url_for('setting') }}" {% if request.endpoint == 'setting' %}aria-current="page"{% endif %}><span>⚙</span> Settings</a>
         </nav>
         <div class="sidebar-bottom">
             <div class="mini-profile">
@@ -35,16 +36,16 @@
         </div>
     </aside>
 
-    <main class="app-main">
+    <main class="app-main" id="main-content">
         <header class="topbar">
-            <button class="menu-button" id="menuButton" aria-label="Open menu">☰</button>
+            <button class="menu-button" id="menuButton" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">☰</button>
             <div class="topbar-title">{% block page_eyebrow %}Your learning space{% endblock %}</div>
             <div class="topbar-actions"><span class="streak-pill">🔥 {{ streak|default(0) }} day streak</span></div>
         </header>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
-            <div class="flash-stack">
+            <div class="flash-stack" role="status">
               {% for category, message in messages %}
                 <div class="flash {{ category }}">{{ message }}</div>
               {% endfor %}
@@ -55,6 +56,14 @@
         {% block content %}{% endblock %}
         <footer>Built for consistent learning · <span>Learn less randomly. Remember more.</span></footer>
     </main>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+        <a class="mobile-nav-link {% if request.endpoint == 'Dashboard' %}active{% endif %}" href="{{ url_for('Dashboard') }}"><span>⌂</span><small>Home</small></a>
+        <a class="mobile-nav-link {% if request.endpoint == 'test' %}active{% endif %}" href="{{ url_for('test') }}"><span>✓</span><small>Test</small></a>
+        <a class="mobile-nav-link {% if request.endpoint == 'lookup' %}active{% endif %}" href="{{ url_for('lookup') }}"><span>⌕</span><small>Search</small></a>
+        <a class="mobile-nav-link {% if request.endpoint == 'setting' %}active{% endif %}" href="{{ url_for('setting') }}"><span>⚙</span><small>Settings</small></a>
+    </nav>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
