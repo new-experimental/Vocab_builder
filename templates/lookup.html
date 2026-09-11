@@ -5,15 +5,15 @@
 <div class="page narrow-page">
   <section class="hero compact-hero">
     <div>
-      <p class="eyebrow">LOOK IT UP</p>
-      <h1>Understand a word in seconds.</h1>
-      <p>Search the local library first. New words can be fetched and cached automatically.</p>
+      <p class="eyebrow">DICTIONARY</p>
+      <h1>Turn curiosity into memory.</h1>
+      <p>Look up a word, hear it, understand it, and keep moving.</p>
     </div>
   </section>
 
-  <form class="lookup-bar" method="GET" action="{{ url_for('lookup') }}">
-    <input name="word" value="{{ query }}" placeholder="Try: meticulous" autocomplete="off" autofocus>
-    <button class="button" type="submit">Search</button>
+  <form class="lookup-bar" method="GET" action="{{ url_for('lookup') }}" role="search">
+    <input name="word" value="{{ query }}" placeholder="Search any English word…" autocomplete="off" autofocus aria-label="Search a word">
+    <button class="button" type="submit">Search <span>→</span></button>
   </form>
 
   {% if query and result %}
@@ -31,13 +31,13 @@
       <div class="detail"><label>Synonyms</label><p>{{ result.synonym or '—' }}</p></div>
       <div class="detail"><label>Antonyms</label><p>{{ result.antonym or '—' }}</p></div>
     </div>
-    {% if result.example %}<div class="example"><strong>Example:</strong> {{ result.example }}</div>{% endif %}
-    <div class="lookup-source">Source: {{ result.source or 'Vocab Builder library' }}</div>
+    {% if result.example %}<div class="example"><strong>In context:</strong> {{ result.example }}</div>{% endif %}
+    <div class="lookup-source">{{ result.source or 'Vocab Builder library' }} · saved locally for faster future searches</div>
   </article>
   {% elif query %}
-  <div class="empty"><strong>We couldn't find “{{ query }}”.</strong><br>Try a different spelling or another word.</div>
+  <div class="empty"><strong>We couldn't find “{{ query }}”.</strong><br>Check the spelling or try a different word.</div>
   {% else %}
-  <div class="empty"><strong>Build your own vocabulary library.</strong><br>Search any word and useful results are cached for later use.</div>
+  <div class="empty"><strong>Search, learn, remember.</strong><br>Your recent discoveries can become part of your local vocabulary library.</div>
   {% endif %}
 </div>
 {% endblock %}
