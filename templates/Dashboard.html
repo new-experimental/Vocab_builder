@@ -7,20 +7,25 @@
     <div>
       <p class="eyebrow">{{ today.strftime('%A, %d %B') }}</p>
       <h1>Keep building your vocabulary, {{ current_user.name.split()[0] }}.</h1>
-      <p>Your daily set is ready. Review the difficult words first, then learn something new.</p>
+      <p>Your daily set is ready. Review difficult words first, then add something new.</p>
     </div>
     <a class="button" href="{{ url_for('test') }}">Take a test →</a>
+  </section>
+
+  <section class="quick-lookup">
+    <div><strong>Need a quick definition?</strong><span>Search the library or fetch a new word.</span></div>
+    <form method="GET" action="{{ url_for('lookup') }}"><input name="word" placeholder="Search a word…" autocomplete="off"><button class="button" type="submit">Dictionary</button></form>
   </section>
 
   <section class="stats">
     <div class="stat"><div class="stat-top"><span>Words today</span><span class="stat-icon">✦</span></div><div class="stat-value">{{ words|length }}</div><div class="stat-sub">Daily learning target</div></div>
     <div class="stat"><div class="stat-top"><span>Known</span><span class="stat-icon">✓</span></div><div class="stat-value">{{ stats.known }}</div><div class="stat-sub">Words you've mastered</div></div>
     <div class="stat"><div class="stat-top"><span>Review queue</span><span class="stat-icon">↻</span></div><div class="stat-value">{{ stats.due }}</div><div class="stat-sub">Due for reinforcement</div></div>
-    <div class="stat"><div class="stat-top"><span>Accuracy</span><span class="stat-icon">%</span></div><div class="stat-value">{{ stats.accuracy }}%</div><div class="stat-sub">Across your attempts</div></div>
+    <div class="stat"><div class="stat-top"><span>Library</span><span class="stat-icon">#</span></div><div class="stat-value">{{ stats.library_size }}</div><div class="stat-sub">Words available to learn</div></div>
   </section>
 
   <section class="progress-card">
-    <div class="progress-copy"><strong>Learning momentum</strong><span>Consistency beats cramming.</span></div>
+    <div class="progress-copy"><strong>Learning accuracy</strong><span>Use reviews to turn recognition into recall.</span></div>
     <div class="progress-track"><div class="progress-fill" style="width: {{ [stats.accuracy, 100]|min }}%"></div></div>
     <div class="progress-percent">{{ stats.accuracy }}%</div>
   </section>
@@ -30,8 +35,11 @@
   <section class="words">
     {% for word in words %}
     <article class="word-card">
-      <div class="word-meta"><span class="level">{{ word.level }}</span><span class="pos">{{ word.part_of_speech or 'Vocabulary' }}</span></div>
-      <h3>{{ word.word }}</h3>
+      <div class="word-meta"><span class="level">{{ word.level }}</span><span class="pos">{{ word.part_of_speech or 'Vocabulary' }}</span>{% if word.source %}<span class="source-dot" title="{{ word.source }}">●</span>{% endif %}</div>
+      <div class="word-heading">
+        <div><h3>{{ word.word }}</h3>{% if word.phonetic %}<div class="pronunciation">{{ word.phonetic }}</div>{% endif %}</div>
+        {% if word.audio_url %}<button class="audio-button" type="button" data-audio="{{ word.audio_url }}" aria-label="Play pronunciation">▶</button>{% endif %}
+      </div>
       <div class="meaning">{{ word.eng_meaning }}</div>
       <div class="word-details">
         <div class="detail"><label>Synonym</label><p>{{ word.synonym or '—' }}</p></div>
@@ -51,11 +59,18 @@
 
   {% if stats.tests %}
   <div class="section-head"><h2>Recent tests</h2><span>Your latest attempts</span></div>
-  <div class="test-shell" style="padding:0;overflow:hidden">
+  <div class="test-shell history-shell">
     {% for test in stats.tests %}
-      <div class="result-row" style="display:flex;justify-content:space-between"><span>{{ test.test_date.strftime('%d %b %Y') if test.test_date else 'Recent test' }} · {{ test.level or 'Mixed' }}</span><strong>{{ test.score }}/{{ test.total }}</strong></div>
+      <div class="result-row"><span>{{ test.test_date.strftime('%d %b %Y') if test.test_date else 'Recent test' }} · {{ test.level or 'Mixed' }}</span><strong>{{ test.score }}/{{ test.total }}</strong></div>
     {% endfor %}
   </div>
   {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-audio]').forEach(btn => {
+  btn.addEventListener('click', () => new Audio(btn.dataset.audio).play().catch(() => {}));
+});
+</script>
 {% endblock %}
