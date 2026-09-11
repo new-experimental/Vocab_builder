@@ -2,7 +2,7 @@ import os
 import random
 from datetime import date, timedelta
 
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import (
     LoginManager,
     UserMixin,
@@ -15,6 +15,7 @@ from flask_mysqldb import MySQL
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from Services.Spaced_repetition import update_spaced_repetition
+from Services.word_ingestion import lookup_word, replenish_library
 
 
 app = Flask(__name__)
@@ -76,18 +77,12 @@ def clamp_word_limit(value, default=10):
 def update_streak(user_id):
     today = get_today()
     cur = mysql.connection.cursor()
-    cur.execute(
-        "SELECT last_active, streak FROM user_streak WHERE user_id=%s",
-        (user_id,),
-    )
+    cur.execute("SELECT last_active, streak FROM user_streak WHERE user_id=%s", (user_id,))
     row = cur.fetchone()
 
     if not row:
         cur.execute(
-            """
-            INSERT INTO user_streak (user_id, last_active, streak)
-            VALUES (%s, %s, 1)
-            """,
+            "INSERT INTO user_streak (user_id, last_active, streak) VALUES (%s, %s, 1)",
             (user_id, today),
         )
         streak = 1
@@ -100,12 +95,8 @@ def update_streak(user_id):
             streak += 1
         else:
             streak = 1
-
         cur.execute(
-            """
-            UPDATE user_streak SET streak=%s, last_active=%s
-            WHERE user_id=%s
-            """,
+            "UPDATE user_streak SET streak=%s, last_active=%s WHERE user_id=%s",
             (streak, today, user_id),
         )
 
@@ -114,16 +105,8 @@ def update_streak(user_id):
     return streak
 
 
-def get_streak(user_id):
-    cur = mysql.connection.cursor()
-    cur.execute("SELECT streak FROM user_streak WHERE user_id=%s", (user_id,))
-    row = cur.fetchone()
-    cur.close()
-    return int(row["streak"] or 0) if row else 0
-
-
 def get_daily_words(user_id, limit):
-    """Return due review words first, then fill the remaining slots with new words."""
+    """Return due review words first, then fill remaining slots with unseen words."""
     today = get_today()
     limit = clamp_word_limit(limit)
     cur = mysql.connection.cursor()
@@ -132,6 +115,7 @@ def get_daily_words(user_id, limit):
         """
         SELECT w.id, w.word, w.eng_meaning, w.part_of_speech,
                w.synonym, w.antonym, w.example, w.level,
+               w.phonetic, w.audio_url, w.source,
                uw.status, uw.interval_days, uw.ease, uw.last_review
         FROM user_words uw
         JOIN words w ON uw.word_id = w.id
@@ -160,12 +144,11 @@ def get_daily_words(user_id, limit):
             """
             SELECT id, word, eng_meaning, part_of_speech,
                    synonym, antonym, example, level,
+                   phonetic, audio_url, source,
                    'new' AS status, 1 AS interval_days, 2.5 AS ease,
                    NULL AS last_review
             FROM words
-            WHERE id NOT IN (
-                SELECT word_id FROM user_words WHERE user_id=%s
-            )
+            WHERE id NOT IN (SELECT word_id FROM user_words WHERE user_id=%s)
             ORDER BY RAND()
             LIMIT %s
             """,
@@ -173,7 +156,6 @@ def get_daily_words(user_id, limit):
         )
         new_words = list(cur.fetchall())
         words.extend(new_words)
-
         for word in new_words:
             cur.execute(
                 """
@@ -192,33 +174,29 @@ def get_daily_words(user_id, limit):
 
 def get_dashboard_stats(user_id):
     cur = mysql.connection.cursor()
-
     cur.execute(
         """
-        SELECT
-            COUNT(*) AS tracked,
-            COALESCE(SUM(known),0) AS known,
-            COALESCE(SUM(unknown),0) AS unknown,
-            COALESCE(SUM(CASE WHEN status='unknown' AND last_review <= %s THEN 1 ELSE 0 END),0) AS due
-        FROM user_words
-        WHERE user_id=%s
+        SELECT COUNT(*) AS tracked,
+               COALESCE(SUM(known),0) AS known,
+               COALESCE(SUM(unknown),0) AS unknown,
+               COALESCE(SUM(CASE WHEN status='unknown' AND last_review <= %s THEN 1 ELSE 0 END),0) AS due
+        FROM user_words WHERE user_id=%s
         """,
         (get_today(), user_id),
     )
     row = cur.fetchone()
-    tracked = int(row["tracked"] or 0)
     known = int(row["known"] or 0)
     unknown = int(row["unknown"] or 0)
     attempted = known + unknown
-    accuracy = round((known / attempted) * 100) if attempted else 0
+
+    cur.execute("SELECT COUNT(*) AS total FROM words")
+    library_size = int(cur.fetchone()["total"] or 0)
 
     cur.execute(
         """
         SELECT id, score, total, level, test_date
-        FROM test_result
-        WHERE user_id=%s
-        ORDER BY test_date DESC
-        LIMIT 5
+        FROM test_result WHERE user_id=%s
+        ORDER BY test_date DESC LIMIT 5
         """,
         (user_id,),
     )
@@ -226,17 +204,17 @@ def get_dashboard_stats(user_id):
     cur.close()
 
     return {
-        "tracked": tracked,
+        "tracked": int(row["tracked"] or 0),
         "known": known,
         "unknown": unknown,
         "due": int(row["due"] or 0),
-        "accuracy": accuracy,
+        "accuracy": round((known / attempted) * 100) if attempted else 0,
+        "library_size": library_size,
         "tests": tests,
     }
 
 
 def build_questions(user_id, level_filter=None, limit=10):
-    """Build balanced vocabulary questions from the learner's level and history."""
     cur = mysql.connection.cursor()
     params = [user_id]
     where_level = ""
@@ -254,34 +232,25 @@ def build_questions(user_id, level_filter=None, limit=10):
     cur.execute(
         f"""
         SELECT w.id, w.word, w.eng_meaning, w.level
-        FROM user_words uw
-        JOIN words w ON uw.word_id=w.id
-        WHERE uw.user_id=%s
-          AND uw.status IN ('unknown','new')
-          {where_level}
-        ORDER BY RAND()
-        LIMIT %s
+        FROM user_words uw JOIN words w ON uw.word_id=w.id
+        WHERE uw.user_id=%s AND uw.status IN ('unknown','new') {where_level}
+        ORDER BY RAND() LIMIT %s
         """,
         (*params, limit),
     )
     candidates = list(cur.fetchall())
 
     if len(candidates) < limit:
-        params = list(levels)
         level_clause = ""
         if levels:
             placeholders = ",".join(["%s"] * len(levels))
             level_clause = f" AND level IN ({placeholders})"
-        params.append(user_id)
-        params.append(limit - len(candidates))
         cur.execute(
             f"""
-            SELECT id, word, eng_meaning, level
-            FROM words
+            SELECT id, word, eng_meaning, level FROM words
             WHERE id NOT IN (SELECT word_id FROM user_words WHERE user_id=%s)
-              {level_clause}
-            ORDER BY RAND()
-            LIMIT %s
+            {level_clause}
+            ORDER BY RAND() LIMIT %s
             """,
             (user_id, *levels, limit - len(candidates)),
         )
@@ -290,13 +259,7 @@ def build_questions(user_id, level_filter=None, limit=10):
     questions = []
     for item in candidates[:limit]:
         cur.execute(
-            """
-            SELECT eng_meaning
-            FROM words
-            WHERE level=%s AND id!=%s
-            ORDER BY RAND()
-            LIMIT 6
-            """,
+            "SELECT eng_meaning FROM words WHERE level=%s AND id!=%s ORDER BY RAND() LIMIT 6",
             (item["level"], item["id"]),
         )
         distractors = [r["eng_meaning"] for r in cur.fetchall()]
@@ -307,25 +270,20 @@ def build_questions(user_id, level_filter=None, limit=10):
             if len(options) == 4:
                 break
         while len(options) < 4:
-            cur.execute(
-                "SELECT eng_meaning FROM words WHERE id!=%s ORDER BY RAND() LIMIT 1",
-                (item["id"],),
-            )
+            cur.execute("SELECT eng_meaning FROM words WHERE id!=%s ORDER BY RAND() LIMIT 1", (item["id"],))
             row = cur.fetchone()
             if not row or row["eng_meaning"] in options:
                 break
             options.append(row["eng_meaning"])
 
         random.shuffle(options)
-        questions.append(
-            {
-                "id": item["id"],
-                "word": item["word"],
-                "meaning": item["eng_meaning"],
-                "level": item["level"],
-                "options": options,
-            }
-        )
+        questions.append({
+            "id": item["id"],
+            "word": item["word"],
+            "meaning": item["eng_meaning"],
+            "level": item["level"],
+            "options": options,
+        })
 
     cur.close()
     return questions
@@ -341,7 +299,6 @@ def home():
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for("Dashboard"))
-
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         username = request.form.get("username", "").strip().lower()
@@ -387,10 +344,7 @@ def login():
         password = request.form.get("password", "")
         cur = mysql.connection.cursor()
         cur.execute(
-            """
-            SELECT id, username, password, name, exam, word_limit, start_date, end_date
-            FROM users WHERE username=%s
-            """,
+            "SELECT id, username, password, name, exam, word_limit, start_date, end_date FROM users WHERE username=%s",
             (username,),
         )
         row = cur.fetchone()
@@ -419,13 +373,26 @@ def Dashboard():
     streak = update_streak(current_user.id)
     words = get_daily_words(current_user.id, current_user.word_limit)
     stats = get_dashboard_stats(current_user.id)
-    return render_template(
-        "Dashboard.html",
-        words=words,
-        streak=streak,
-        today=get_today(),
-        stats=stats,
-    )
+    return render_template("Dashboard.html", words=words, streak=streak, today=get_today(), stats=stats)
+
+
+# ---------------- LIVE WORD LOOKUP ----------------
+@app.route("/lookup")
+@login_required
+def lookup():
+    query = request.args.get("word", "").strip()
+    result = lookup_word(mysql, query) if query else None
+    return render_template("lookup.html", query=query, result=result)
+
+
+@app.route("/api/lookup")
+@login_required
+def api_lookup():
+    query = request.args.get("word", "").strip()
+    result = lookup_word(mysql, query) if query else None
+    if not result:
+        return jsonify({"ok": False, "error": "Word not found"}), 404
+    return jsonify({"ok": True, "word": result})
 
 
 # ---------------- WORD REVIEW ----------------
@@ -444,11 +411,7 @@ def update_word():
 
     cur = mysql.connection.cursor()
     cur.execute(
-        """
-        SELECT interval_days, ease
-        FROM user_words
-        WHERE user_id=%s AND word_id=%s
-        """,
+        "SELECT interval_days, ease FROM user_words WHERE user_id=%s AND word_id=%s",
         (current_user.id, word_id),
     )
     row = cur.fetchone()
@@ -467,32 +430,22 @@ def update_word():
     cur.execute(
         """
         UPDATE user_words
-        SET status=%s,
-            last_review=%s,
-            interval_days=%s,
-            ease=%s,
-            known=%s,
-            unknown=%s,
-            learned_on=COALESCE(learned_on, %s)
+        SET status=%s, last_review=%s, interval_days=%s, ease=%s,
+            known=%s, unknown=%s, learned_on=COALESCE(learned_on, %s)
         WHERE user_id=%s AND word_id=%s
         """,
         (
-            status,
-            next_review,
-            interval,
-            ease,
+            status, next_review, interval, ease,
             1 if status == "known" else 0,
             1 if status == "unknown" else 0,
-            get_today(),
-            current_user.id,
-            word_id,
+            get_today(), current_user.id, word_id,
         ),
     )
     mysql.connection.commit()
     cur.close()
 
     flash(
-        "Marked as learned. Nice work!" if status == "known" else "Added to tomorrow's review.",
+        "Marked as learned. Nice work!" if status == "known" else "Added to your review queue.",
         "success",
     )
     return redirect(url_for("Dashboard"))
@@ -540,15 +493,13 @@ def submit_mcq():
         selected = answers[word_id]
         is_correct = selected == word["eng_meaning"]
         score += int(is_correct)
-        results.append(
-            {
-                "word": word["word"],
-                "selected": selected,
-                "correct": word["eng_meaning"],
-                "is_correct": is_correct,
-                "level": word["level"],
-            }
-        )
+        results.append({
+            "word": word["word"],
+            "selected": selected,
+            "correct": word["eng_meaning"],
+            "is_correct": is_correct,
+            "level": word["level"],
+        })
 
         quality = 5 if is_correct else 2
         cur.execute(
@@ -569,33 +520,21 @@ def submit_mcq():
                  interval_days, known, unknown, ease)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON DUPLICATE KEY UPDATE
-                status=VALUES(status),
-                last_review=VALUES(last_review),
-                interval_days=VALUES(interval_days),
-                known=VALUES(known),
-                unknown=VALUES(unknown),
-                ease=VALUES(ease)
+                status=VALUES(status), last_review=VALUES(last_review),
+                interval_days=VALUES(interval_days), known=VALUES(known),
+                unknown=VALUES(unknown), ease=VALUES(ease)
             """,
             (
-                current_user.id,
-                word_id,
-                status,
-                get_today(),
-                next_review,
-                interval,
-                1 if is_correct else 0,
-                0 if is_correct else 1,
-                ease,
+                current_user.id, word_id, status,
+                get_today(), next_review, interval,
+                1 if is_correct else 0, 0 if is_correct else 1, ease,
             ),
         )
 
     total = len(results)
     level = request.form.get("test_level", "Mixed")
     cur.execute(
-        """
-        INSERT INTO test_result (user_id, score, total, level)
-        VALUES (%s,%s,%s,%s)
-        """,
+        "INSERT INTO test_result (user_id, score, total, level) VALUES (%s,%s,%s,%s)",
         (current_user.id, score, total, level[:10]),
     )
     mysql.connection.commit()
@@ -611,6 +550,28 @@ def submit_mcq():
         percentage=percentage,
         streak=streak,
     )
+
+
+# ---------------- MAINTENANCE ----------------
+@app.route("/maintenance/replenish", methods=["POST"])
+def maintenance_replenish():
+    expected = os.getenv("MAINTENANCE_TOKEN", "")
+    provided = request.headers.get("X-Maintenance-Token", "")
+    if not expected or provided != expected:
+        return jsonify({"ok": False, "error": "Unauthorized"}), 401
+
+    try:
+        requested = max(1, min(20, int(request.form.get("count", 10))))
+    except (TypeError, ValueError):
+        requested = 10
+
+    try:
+        inserted = replenish_library(mysql, requested)
+    except Exception:
+        mysql.connection.rollback()
+        return jsonify({"ok": False, "error": "Library refresh failed"}), 503
+
+    return jsonify({"ok": True, "inserted": inserted})
 
 
 # ---------------- SETTINGS ----------------
@@ -654,7 +615,6 @@ def setting():
 
         mysql.connection.commit()
         cur.close()
-
         current_user.name = name
         current_user.exam = exam
         current_user.word_limit = word_limit
